@@ -23,6 +23,7 @@ COPY public/ ./public/
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV SERVER_BASE_URL=${SERVER_BASE_URL}
+ENV NEXT_PUBLIC_SERVER_BASE_URL=${SERVER_BASE_URL}
 RUN NODE_ENV=production npm run build
 
 FROM python:3.11-slim AS py_deps

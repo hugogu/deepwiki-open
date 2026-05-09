@@ -368,7 +368,9 @@ const Ask: React.FC<AskProps> = ({
         // Error handler
         (error: Event) => {
           console.error('WebSocket error:', error);
-          // Silently fall back to HTTP without showing error to user
+          setResponse(prev => prev + '\n\nError: WebSocket connection failed. Falling back to HTTP...');
+
+          // Fallback to HTTP if WebSocket fails
           fallbackToHttp(requestBody);
         },
         // Close handler
@@ -594,7 +596,9 @@ const Ask: React.FC<AskProps> = ({
         // Error handler
         (error: Event) => {
           console.error('WebSocket error:', error);
-          // Silently fall back to HTTP without showing error to user
+          setResponse(prev => prev + '\n\nError: WebSocket connection failed. Falling back to HTTP...');
+
+          // Fallback to HTTP if WebSocket fails
           fallbackToHttp(requestBody);
         },
         // Close handler

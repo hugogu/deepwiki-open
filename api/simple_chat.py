@@ -89,9 +89,10 @@ async def chat_completions_stream(request: ChatCompletionRequest):
                     input_too_large = True
 
         # Create a new RAG instance for this request
-        try:
-            request_rag = RAG(provider=request.provider, model=request.model)
+        request_rag = RAG(provider=request.provider, model=request.model)
+        rag_available = False
 
+        try:
             # Extract custom file filter parameters if provided
             excluded_dirs = None
             excluded_files = None
@@ -113,20 +114,18 @@ async def chat_completions_stream(request: ChatCompletionRequest):
 
             request_rag.prepare_retriever(request.repo_url, request.type, request.token, excluded_dirs, excluded_files, included_dirs, included_files)
             logger.info(f"Retriever prepared for {request.repo_url}")
+            rag_available = True
         except ValueError as e:
             if "No valid documents with embeddings found" in str(e):
-                logger.error(f"No valid embeddings found: {str(e)}")
-                raise HTTPException(status_code=500, detail="No valid document embeddings found. This may be due to embedding size inconsistencies or API errors during document processing. Please try again or check your repository content.")
+                logger.warning(f"Embeddings not available, continuing without RAG: {str(e)}")
             else:
                 logger.error(f"ValueError preparing retriever: {str(e)}")
-                raise HTTPException(status_code=500, detail=f"Error preparing retriever: {str(e)}")
         except Exception as e:
             logger.error(f"Error preparing retriever: {str(e)}")
-            # Check for specific embedding-related errors
             if "All embeddings should be of the same size" in str(e):
-                raise HTTPException(status_code=500, detail="Inconsistent embedding sizes detected. Some documents may have failed to embed properly. Please try again.")
+                logger.warning("Inconsistent embedding sizes detected, continuing without RAG")
             else:
-                raise HTTPException(status_code=500, detail=f"Error preparing retriever: {str(e)}")
+                logger.warning(f"Retriever preparation failed, continuing without RAG: {str(e)}")
 
         # Validate request
         if not request.messages or len(request.messages) == 0:
@@ -188,7 +187,7 @@ async def chat_completions_stream(request: ChatCompletionRequest):
         context_text = ""
         retrieved_documents = None
 
-        if not input_too_large:
+        if not input_too_large and rag_available:
             try:
                 # If filePath exists, modify the query for RAG to focus on the file
                 rag_query = query
@@ -236,6 +235,8 @@ async def chat_completions_stream(request: ChatCompletionRequest):
             except Exception as e:
                 logger.error(f"Error retrieving documents: {str(e)}")
                 context_text = ""
+        elif not rag_available:
+            logger.info("RAG not available, skipping document retrieval")
 
         # Get repository information
         repo_url = request.repo_url

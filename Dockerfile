@@ -1,7 +1,8 @@
 # syntax=docker/dockerfile:1-labs
 
-# Build argument for custom certificates directory
+# Build arguments
 ARG CUSTOM_CERT_DIR="certs"
+ARG SERVER_BASE_URL="http://localhost:8001"
 
 FROM node:20-alpine3.22 AS node_base
 
@@ -11,6 +12,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --legacy-peer-deps
 
 FROM node_base AS node_builder
+ARG SERVER_BASE_URL
 WORKDIR /app
 COPY --from=node_deps /app/node_modules ./node_modules
 # Copy only necessary files for Next.js build
@@ -20,6 +22,7 @@ COPY public/ ./public/
 # Increase Node.js memory limit for build and disable telemetry
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV SERVER_BASE_URL=${SERVER_BASE_URL}
 RUN NODE_ENV=production npm run build
 
 FROM python:3.11-slim AS py_deps
@@ -81,16 +84,18 @@ EXPOSE ${PORT:-8001} 3000
 
 # Create a script to run both backend and frontend
 RUN echo '#!/bin/bash\n\
-# Load environment variables from .env file if it exists\n\
-if [ -f .env ]; then\n\
-  export $(grep -v "^#" .env | xargs -r)\n\
+# Load environment variables from .env file if it exists and has content\n\
+if [ -f .env ] && [ -s .env ]; then\n\
+  set -a\n\
+  source .env\n\
+  set +a\n\
 fi\n\
 \n\
 # Check for required environment variables\n\
-if [ -z "$OPENAI_API_KEY" ] || [ -z "$GOOGLE_API_KEY" ]; then\n\
-  echo "Warning: OPENAI_API_KEY and/or GOOGLE_API_KEY environment variables are not set."\n\
-  echo "These are required for DeepWiki to function properly."\n\
-  echo "You can provide them via a mounted .env file or as environment variables when running the container."\n\
+if [ -z "$OPENAI_API_KEY" ]; then\n\
+  echo "Warning: OPENAI_API_KEY environment variable is not set."\n\
+  echo "This is required for DeepWiki to function properly."\n\
+  echo "You can provide it via a mounted .env file or as an environment variable when running the container."\n\
 fi\n\
 \n\
 # Start the API server in the background with the configured port\n\

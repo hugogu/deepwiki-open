@@ -163,8 +163,8 @@ export default function Home() {
         setAuthRequired(data.auth_required);
       } catch (err) {
         console.error("Failed to fetch auth status:", err);
-        // Assuming auth is required if fetch fails to avoid blocking UI for safety
-        setAuthRequired(true);
+        // Default to no auth required if fetch fails to avoid blocking UI
+        setAuthRequired(false);
       } finally {
         setIsAuthLoading(false);
       }

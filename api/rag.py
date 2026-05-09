@@ -189,6 +189,8 @@ class RAG(adal.Component):
         # Initialize components
         self.memory = Memory()
         self.embedder = get_embedder(embedder_type=self.embedder_type)
+        self.retriever = None
+        self.transformed_docs = []
 
         self_weakref = weakref.ref(self)
         # Patch: ensure query embedding is always single string for Ollama
@@ -423,6 +425,11 @@ IMPORTANT FORMATTING RULES:
         Returns:
             Tuple of (RAGAnswer, retrieved_documents)
         """
+        if self.retriever is None:
+            logger.warning("RAG retriever not initialized, skipping retrieval")
+            from adalflow.core.types import RetrieverOutput
+            return [RetrieverOutput(doc_indices=[], documents=[], query=query)]
+
         try:
             retrieved_documents = self.retriever(query)
 
